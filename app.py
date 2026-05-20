@@ -1,88 +1,151 @@
 import streamlit as st
+import pandas as pd
 import pickle
 
-# ===== LOAD MODEL =====
+# =========================
+# LOAD MODEL & SCALER
+# =========================
 model = pickle.load(open("model.pkl", "rb"))
 scaler = pickle.load(open("scaler.pkl", "rb"))
 
-# ===== PAGE CONFIG =====
+# =========================
+# PAGE CONFIG
+# =========================
 st.set_page_config(
     page_title="Employee Attrition Predictor",
     page_icon="📊",
     layout="centered"
 )
 
-# ===== TITLE =====
+# =========================
+# TITLE
+# =========================
 st.title("📊 Employee Attrition Prediction")
-st.write("Predict whether an employee is likely to leave the company.")
+st.markdown("Predict whether an employee is likely to leave the company.")
 
-# ===== INPUTS =====
+# =========================
+# INPUT FIELDS
+# =========================
 
-Age = st.number_input(
-    "Age",
-    min_value=18,
-    max_value=60,
-    value=30
-)
+age = st.slider("Age", 18, 60, 30)
 
-MonthlyIncome = st.number_input(
+income = st.number_input(
     "Monthly Income",
     min_value=1000,
     max_value=200000,
-    value=5000,
-    step=1000
+    value=5000
 )
 
-JobLevel = st.selectbox(
+job_level = st.selectbox(
     "Job Level",
     [1, 2, 3, 4, 5]
 )
 
-JobSatisfaction = st.selectbox(
+job_satisfaction = st.selectbox(
     "Job Satisfaction",
-    [1, 2, 3, 4]
+    [1, 2, 3, 4],
+    help="1 = Low, 4 = Very High"
 )
 
-WorkLifeBalance = st.selectbox(
+work_life_balance = st.selectbox(
     "Work Life Balance",
-    [1, 2, 3, 4]
+    [1, 2, 3, 4],
+    help="1 = Bad, 4 = Excellent"
 )
 
-YearsAtCompany = st.number_input(
+years_at_company = st.number_input(
     "Years At Company",
     min_value=0,
     max_value=40,
-    value=5
+    value=1
 )
 
-OverTime_option = st.selectbox(
+overtime_option = st.selectbox(
     "OverTime",
     ["No", "Yes"]
 )
 
-OverTime = 1 if OverTime_option == "Yes" else 0
+# Convert Overtime
+overtime = 1 if overtime_option == "Yes" else 0
 
-# ===== PREDICTION =====
+# =========================
+# FEATURE ORDER
+# =========================
+selected_features = [
+    'Age',
+    'MonthlyIncome',
+    'JobLevel',
+    'JobSatisfaction',
+    'WorkLifeBalance',
+    'YearsAtCompany',
+    'OverTime'
+]
+
+# =========================
+# PREDICTION BUTTON
+# =========================
 if st.button("Predict Attrition"):
 
-    input_data = [[
-        Age,
-        MonthlyIncome,
-        JobLevel,
-        JobSatisfaction,
-        WorkLifeBalance,
-        YearsAtCompany,
-        OverTime
-    ]]
+    # Create DataFrame
+    input_data = pd.DataFrame(
+        [[
+            age,
+            income,
+            job_level,
+            job_satisfaction,
+            work_life_balance,
+            years_at_company,
+            overtime
+        ]],
+        columns=selected_features
+    )
 
-    # ===== SCALE INPUT =====
+    # Scale input
     input_scaled = scaler.transform(input_data)
 
-    # ===== PREDICT =====
-    prediction = model.predict(input_scaled)
+    # Prediction
+    prediction = model.predict(input_scaled)[0]
 
-    # ===== RESULT =====
-    if prediction[0] == 1:
-        st.error("⚠ Employee is likely to leave the company.")
+    # Probability
+    probability = model.predict_proba(input_scaled)[0][1] * 100
+
+    st.subheader("Prediction Result")
+
+    # =========================
+    # RESULT DISPLAY
+    # =========================
+    if prediction == 1:
+
+        st.error(
+            f"⚠️ Employee is likely to leave the company.\n\n"
+            f"Confidence Level: {probability:.2f}%"
+        )
+
+        st.progress(int(probability))
+
+        st.metric(
+            label="Attrition Risk",
+            value=f"{probability:.2f}%"
+        )
+
     else:
-        st.success("✅ Employee is likely to stay in the company.")
+
+        stay_probability = 100 - probability
+
+        st.success(
+            f"✅ Employee is likely to stay in the company.\n\n"
+            f"Confidence Level: {stay_probability:.2f}%"
+        )
+
+        st.progress(int(stay_probability))
+
+        st.metric(
+            label="Retention Confidence",
+            value=f"{stay_probability:.2f}%"
+        )
+
+# =========================
+# FOOTER
+# =========================
+st.markdown("---")
+st.caption("Built using Machine Learning & Streamlit")
